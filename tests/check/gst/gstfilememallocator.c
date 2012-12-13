@@ -155,6 +155,123 @@ GST_START_TEST (test_is_span)
 
 GST_END_TEST;
 
+GST_START_TEST (test_copy)
+{
+  GstMapInfo info, sinfo;
+
+  GstAllocator *alloc = NULL;
+  GstMemory *memory = NULL, *copy = NULL;
+
+  gst_filemem_allocator_init (G_GUINT64_CONSTANT (1) << 20, "FileMem");
+
+  alloc = gst_allocator_find ("FileMem");
+  fail_unless (NULL != alloc);
+
+  memory = gst_allocator_alloc (alloc, 4, NULL);
+  ASSERT_MINI_OBJECT_REFCOUNT (memory, "memory", 1);
+
+  copy = gst_memory_copy (memory, 0, -1);
+  ASSERT_MINI_OBJECT_REFCOUNT (memory, "memory", 1);
+  ASSERT_MINI_OBJECT_REFCOUNT (copy, "copy", 1);
+  /* memorys are copied and must point to different memory */
+  fail_if (memory == copy);
+
+  fail_unless (gst_memory_map (memory, &info, GST_MAP_READ));
+  fail_unless (gst_memory_map (copy, &sinfo, GST_MAP_READ));
+
+  /* NOTE that data is refcounted */
+  fail_unless (info.size == sinfo.size);
+
+  gst_memory_unmap (copy, &sinfo);
+  gst_memory_unmap (memory, &info);
+
+  gst_memory_unref (copy);
+  gst_memory_unref (memory);
+
+  memory = gst_allocator_alloc (alloc, 0, NULL);
+  fail_unless (gst_memory_map (memory, &info, GST_MAP_READ));
+  fail_unless (info.size == 0);
+  gst_memory_unmap (memory, &info);
+
+  /* copying a 0-sized memory should not crash */
+  copy = gst_memory_copy (memory, 0, -1);
+  fail_unless (gst_memory_map (copy, &info, GST_MAP_READ));
+  fail_unless (info.size == 0);
+  gst_memory_unmap (copy, &info);
+
+  gst_memory_unref (copy);
+  gst_memory_unref (memory);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_map)
+{
+  GstMapInfo info;
+  gsize maxalloc;
+  gsize size, offset;
+
+  GstAllocator *alloc = NULL;
+  GstMemory *mem = NULL;
+
+  gst_filemem_allocator_init (G_GUINT64_CONSTANT (1) << 20, "FileMem");
+
+  alloc = gst_allocator_find ("FileMem");
+  fail_unless (NULL != alloc);
+
+  /* one memory block */
+  mem = gst_allocator_alloc (alloc, 100, NULL);
+
+  size = gst_memory_get_sizes (mem, &offset, &maxalloc);
+  fail_unless (size == 100);
+  fail_unless (offset == 0);
+  fail_unless (maxalloc >= 100);
+
+  /* see if simply mapping works */
+  fail_unless (gst_memory_map (mem, &info, GST_MAP_READ));
+  fail_unless (info.data != NULL);
+  fail_unless (info.size == 100);
+  fail_unless (info.maxsize == maxalloc);
+
+  gst_memory_unmap (mem, &info);
+
+  fail_unless (gst_memory_map (mem, &info, GST_MAP_WRITE));
+  fail_unless (info.data != NULL);
+  fail_unless (info.size == 100);
+  fail_unless (info.maxsize == maxalloc);
+
+  gst_memory_unmap (mem, &info);
+
+  gst_memory_unref (mem);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_map_until_exhausted)
+{
+  guint64 allocator_total_size = G_GUINT64_CONSTANT (1) << 20;
+  GstAllocator *alloc = NULL;
+  GstMemory *mem1 = NULL, *mem2 = NULL;
+
+  gst_filemem_allocator_init (allocator_total_size, "FileMem");
+
+  alloc = gst_allocator_find ("FileMem");
+  fail_unless (NULL != alloc);
+
+  mem1 = gst_allocator_alloc (alloc, allocator_total_size + 1, NULL);
+  fail_unless (NULL == mem1);
+
+  mem1 = gst_allocator_alloc (alloc, allocator_total_size / 2 + 1, NULL);
+  fail_unless (NULL != mem1);
+
+  mem2 = gst_allocator_alloc (alloc, allocator_total_size / 2, NULL);
+  fail_unless (NULL == mem2);
+
+  gst_memory_unref (mem1);
+}
+
+GST_END_TEST;
+
 static Suite *
 gst_file_mem_allocator_suite (void)
 {
@@ -165,6 +282,9 @@ gst_file_mem_allocator_suite (void)
   tcase_add_test (tc_chain, test_get_some_memory);
   tcase_add_test (tc_chain, test_submemory);
   tcase_add_test (tc_chain, test_is_span);
+  tcase_add_test (tc_chain, test_copy);
+  tcase_add_test (tc_chain, test_map);
+  tcase_add_test (tc_chain, test_map_until_exhausted);
 
   return s;
 }

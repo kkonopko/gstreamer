@@ -54,8 +54,8 @@ TODO: Description
 
 #endif
 
-GST_DEBUG_CATEGORY_STATIC (gst_filememallocator_debug);
-#define GST_CAT_DEFAULT gst_filememallocator_debug
+GST_DEBUG_CATEGORY_STATIC (gst_file_mem_allocator_debug);
+#define GST_CAT_DEFAULT gst_file_mem_allocator_debug
 
 typedef struct _GstFileMemory GstFileMemory;
 typedef struct _GstFileMemAllocator GstFileMemAllocator;
@@ -109,10 +109,14 @@ gst_file_mem_alloc (GstAllocator * alloc,
   gsize maxsize = align_size (size + params->prefix + params->padding,
       allocator->page_size);
 
+  if (0 == maxsize) {
+    maxsize = allocator->page_size;
+  }
+
   GST_DEBUG ("alloc from allocator %p", allocator);
 
   if (allocator->f_offset_next + maxsize > allocator->file_size) {
-    GST_ERROR ("Cannot allocate %u bytes: not enough space", maxsize);
+    GST_WARNING ("Cannot allocate %u bytes: not enough space", maxsize);
     return NULL;
   }
 
@@ -311,6 +315,9 @@ gst_file_mem_allocator_class_init (GstFileMemAllocatorClass * klass)
           "The size of the file that will be used for a memory pool",
           DEFAULT_FILE_SIZE, G_MAXUINT64, DEFAULT_FILE_SIZE,
           G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS));
+
+  GST_DEBUG_CATEGORY_INIT (gst_file_mem_allocator_debug, "file mem allocator",
+      0, "file memory allocator debug");
 }
 
 static void
