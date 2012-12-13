@@ -101,13 +101,13 @@ align_size (gsize size, gsize alignment)
 
 static GstMemory *
 gst_file_mem_alloc (GstAllocator * alloc,
-		gsize size, GstAllocationParams * params)
+    gsize size, GstAllocationParams * params)
 {
   GstFileMemory *mem;
 
-  GstFileMemAllocator *allocator = (GstFileMemAllocator *)alloc;
-  gsize maxsize = align_size(size + params->prefix + params->padding,
-                             allocator->page_size);
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) alloc;
+  gsize maxsize = align_size (size + params->prefix + params->padding,
+      allocator->page_size);
 
   GST_DEBUG ("alloc from allocator %p", allocator);
 
@@ -121,8 +121,10 @@ gst_file_mem_alloc (GstAllocator * alloc,
   gst_memory_init (GST_MEMORY_CAST (mem), params->flags, alloc, NULL,
       maxsize, params->align, params->prefix, size);
 
-  mem->f_offset = allocator->f_offset_next =+ maxsize;
+  mem->f_offset = allocator->f_offset_next;
   mem->data = NULL;
+
+  allocator->f_offset_next += maxsize;
 
   return (GstMemory *) mem;
 }
@@ -143,11 +145,15 @@ static int
 gst_file_mem_get_map_prot (GstMapFlags flags)
 {
   switch (flags) {
-  case GST_MAP_READ: return PROT_READ;
-  case GST_MAP_WRITE: return PROT_WRITE;
-  default:
-    g_return_val_if_reached (PROT_NONE);
-    break;
+    case GST_MAP_READ:
+      return PROT_READ;
+
+    case GST_MAP_WRITE:
+      return PROT_WRITE;
+
+    default:
+      g_return_val_if_reached (PROT_NONE);
+      break;
   }
 
   return PROT_NONE;
@@ -164,7 +170,7 @@ gst_file_mem_map (GstFileMemory * mem, gsize maxsize, GstMapFlags flags)
      Can we do something about data offset (GstAllocationParams)? Is it
      the right place to handle it? */
   res = mmap (NULL, maxsize, mmap_prot, MAP_PRIVATE, allocator->fd,
-		  mem->f_offset);
+      mem->f_offset);
 
   if (MAP_FAILED == res) {
     GST_ERROR ("mmap() failed: %s", g_strerror (errno));
@@ -217,6 +223,23 @@ gst_file_mem_share (GstFileMemory * mem, gssize offset, gsize size)
   return sub;
 }
 
+static gboolean
+gst_file_mem_is_span (GstFileMemory * mem1, GstFileMemory * mem2,
+    gsize * offset)
+{
+
+  if (offset) {
+    GstFileMemory *parent = (GstFileMemory *) mem1->mem.parent;
+    g_return_val_if_fail (NULL != parent, FALSE);
+
+    *offset = mem1->mem.offset - parent->mem.offset;
+  }
+
+  /* and memory is contiguous */
+  return mem1->f_offset == mem2->f_offset &&
+      mem1->mem.offset + mem1->mem.size == mem2->mem.offset;
+}
+
 GType gst_file_mem_allocator_get_type (void);
 G_DEFINE_TYPE (GstFileMemAllocator, gst_file_mem_allocator, GST_TYPE_ALLOCATOR);
 
@@ -224,7 +247,7 @@ static void
 gst_file_mem_set_property (GObject * object,
     guint prop_id, const GValue * value, GParamSpec * pspec)
 {
-  GstFileMemAllocator *allocator = (GstFileMemAllocator *)object;
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
 
   switch (prop_id) {
     case PROP_FILE_SIZE:
@@ -240,7 +263,7 @@ static void
 gst_file_mem_constructed (GObject * object)
 {
   char tmpfile_name[] = "/tmp/gstfilememallocator-XXXXXX";
-  GstFileMemAllocator *allocator = (GstFileMemAllocator *)object;
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
 
   allocator->fd = mkstemp (tmpfile_name);
 
@@ -252,7 +275,6 @@ gst_file_mem_constructed (GObject * object)
     g_error ("unlink() failed: %s", g_strerror (errno));
   }
 
-  // TODO:
   if (-1 == ftruncate64 (allocator->fd, allocator->file_size)) {
     g_error ("ftruncate64() failed: %s", g_strerror (errno));
   }
@@ -263,7 +285,7 @@ gst_file_mem_constructed (GObject * object)
 static void
 gst_file_mem_dispose (GObject * object)
 {
-  GstFileMemAllocator *allocator = (GstFileMemAllocator *)object;
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
   if (-1 != allocator->fd && -1 == close (allocator->fd)) {
     g_error ("close() failed: %s", g_strerror (errno));
   }
@@ -285,10 +307,10 @@ gst_file_mem_allocator_class_init (GstFileMemAllocatorClass * klass)
   allocator_class->free = gst_file_mem_free;
 
   g_object_class_install_property (gobject_class, PROP_FILE_SIZE,
-    g_param_spec_uint64 ("file-size", "File Size",
-      "The size of the file that will be used for a memory pool",
-      DEFAULT_FILE_SIZE, G_MAXUINT64, DEFAULT_FILE_SIZE,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS));
+      g_param_spec_uint64 ("file-size", "File Size",
+          "The size of the file that will be used for a memory pool",
+          DEFAULT_FILE_SIZE, G_MAXUINT64, DEFAULT_FILE_SIZE,
+          G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -300,6 +322,7 @@ gst_file_mem_allocator_init (GstFileMemAllocator * allocator)
   alloc->mem_map = (GstMemoryMapFunction) gst_file_mem_map;
   alloc->mem_unmap = (GstMemoryUnmapFunction) gst_file_mem_unmap;
   alloc->mem_share = (GstMemoryShareFunction) gst_file_mem_share;
+  alloc->mem_is_span = (GstMemoryIsSpanFunction) gst_file_mem_is_span;
 
   allocator->page_size = sysconf (_SC_PAGESIZE);
   allocator->file_size = DEFAULT_FILE_SIZE;
@@ -311,8 +334,8 @@ void
 gst_filemem_allocator_init (guint64 size, const gchar * name)
 {
   GstFileMemAllocator *allocator =
-		  g_object_new (gst_file_mem_allocator_get_type (), "file-size", size,
-				  NULL);
+      g_object_new (gst_file_mem_allocator_get_type (), "file-size", size,
+      NULL);
 
   gst_allocator_register (name, GST_ALLOCATOR_CAST (allocator));
 }
