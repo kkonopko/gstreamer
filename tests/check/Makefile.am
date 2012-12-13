@@ -110,6 +110,7 @@ check_PROGRAMS =				\
 	gst/gstcapsfeatures    			\
 	$(CXX_CHECKS)			     	\
 	gst/gstdatetime     			\
+	gst/gstfilememallocator	\
 	gst/gstinfo		 		\
 	gst/gstiterator 			\
 	gst/gstmessage	 			\

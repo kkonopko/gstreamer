@@ -519,6 +519,8 @@ EXPORTS
 	gst_event_type_get_type
 	gst_event_type_to_quark
 	gst_event_writable_structure
+	gst_file_mem_allocator_get_type
+	gst_filemem_allocator_init
 	gst_filename_to_uri
 	gst_flow_get_name
 	gst_flow_return_get_type
