@@ -75,6 +75,7 @@ libgstreamer_@GST_API_VERSION@_la_SOURCES = \
 	gstelementfactory.c	\
 	gsterror.c		\
 	gstevent.c		\
+	gstfilememallocator.c	\
 	gstformat.c		\
 	gstghostpad.c		\
 	gstinfo.c		\
@@ -175,6 +176,7 @@ gst_headers =			\
 	gstelementfactory.h	\
 	gsterror.h		\
 	gstevent.h		\
+	gstfilememallocator.h	\
 	gstformat.h		\
 	gstghostpad.h		\
 	gstinfo.h		\
