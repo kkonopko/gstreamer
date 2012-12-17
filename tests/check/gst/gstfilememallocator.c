@@ -1,8 +1,8 @@
-/* GStreamer
+/* GStreamer GstFileMemAllocator unit tests
  *
- * unit test for GstFileMemAllocator
+ * Copyright (C) 2012 YouView TV Ltd.
  *
- * Copyright (C) <2012> Krzysztof Konopko <krzysztof.konopko@gmail.com>
+ * Author: Krzysztof Konopko <krzysztof.konopko@youview.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public

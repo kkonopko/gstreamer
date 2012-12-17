@@ -1,5 +1,7 @@
 /* GStreamer
- * Copyright (C) 2012 Krzysztof Konopko <krzysztof.konopko@gmail.com>
+ * Copyright (C) 2012 YouView TV Ltd.
+ *
+ * Author: Krzysztof Konopko <krzysztof.konopko@youview.com>
  *
  * gstfilememallocator.h: Header for memory allocation using a file as a storage
  *
