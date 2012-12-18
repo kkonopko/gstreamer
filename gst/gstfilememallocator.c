@@ -175,7 +175,7 @@ gst_file_mem_map (GstFileMemory * mem, gsize maxsize, GstMapFlags flags)
   /* Can't really control the alignment
      Can we do something about data offset (GstAllocationParams)? Is it
      the right place to handle it? */
-  res = mmap (NULL, maxsize, mmap_prot, MAP_PRIVATE, allocator->fd,
+  res = mmap (NULL, maxsize, mmap_prot, MAP_SHARED, allocator->fd,
       mem->f_offset);
 
   if (MAP_FAILED == res) {

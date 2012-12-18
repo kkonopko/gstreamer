@@ -52,6 +52,41 @@ GST_START_TEST (test_get_some_memory)
 
 GST_END_TEST;
 
+GST_START_TEST (test_write_read)
+{
+  GstAllocator *alloc = NULL;
+  GstMemory *mem = NULL;
+  int test_value = 0xa;
+  GstMapInfo info;
+
+  const gchar *aname = "FileMem";
+  const guint64 allocator_total_size = G_GUINT64_CONSTANT (1) << 20;
+  const gsize requested_size = 1 << 10;
+
+  gst_filemem_allocator_init (allocator_total_size, aname);
+
+  alloc = gst_allocator_find (aname);
+  fail_unless (NULL != alloc);
+
+  mem = gst_allocator_alloc (alloc, requested_size, NULL);
+  fail_unless (NULL != mem);
+
+  fail_unless (gst_memory_map (mem, &info, GST_MAP_WRITE));
+  memset (info.data, test_value, info.size);
+  gst_memory_unmap (mem, &info);
+
+  fail_unless (gst_memory_map (mem, &info, GST_MAP_READ));
+  fail_unless_equals_int (info.data[0], test_value);
+  fail_unless_equals_int (info.data[info.size / 2], test_value);
+  fail_unless_equals_int (info.data[info.size - 1], test_value);
+  gst_memory_unmap (mem, &info);
+
+  gst_allocator_free (alloc, mem);
+  gst_object_unref (alloc);
+}
+
+GST_END_TEST;
+
 GST_START_TEST (test_submemory)
 {
   GstAllocator *alloc = NULL;
@@ -280,6 +315,7 @@ gst_file_mem_allocator_suite (void)
 
   suite_add_tcase (s, tc_chain);
   tcase_add_test (tc_chain, test_get_some_memory);
+  tcase_add_test (tc_chain, test_write_read);
   tcase_add_test (tc_chain, test_submemory);
   tcase_add_test (tc_chain, test_is_span);
   tcase_add_test (tc_chain, test_copy);
