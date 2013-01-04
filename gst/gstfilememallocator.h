@@ -31,7 +31,8 @@
 G_BEGIN_DECLS
 
 /* an allocator that uses mmap()-ed file chunks */
-void gst_filemem_allocator_init (guint64 size, const gchar * name);
+void gst_filemem_allocator_init (const gchar * name, guint64 size,
+    const gchar * temp_template);
 
 G_END_DECLS
 

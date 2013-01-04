@@ -78,6 +78,8 @@ struct _GstFileMemAllocator
   long page_size;
 
   guint64 file_size;
+  gchar *temp_template;
+
   int fd;
   off_t f_offset_next;
 };
@@ -92,7 +94,8 @@ struct _GstFileMemAllocatorClass
 enum
 {
   PROP_0,
-  PROP_FILE_SIZE
+  PROP_FILE_SIZE,
+  PROP_TEMP_TEMPLATE,
 };
 
 static gsize
@@ -259,6 +262,29 @@ gst_file_mem_set_property (GObject * object,
     case PROP_FILE_SIZE:
       allocator->file_size = g_value_get_uint64 (value);
       break;
+
+    case PROP_TEMP_TEMPLATE:
+      g_free (allocator->temp_template);
+      allocator->temp_template = g_strdup (g_value_get_string (value));
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
+gst_file_mem_get_property (GObject * object,
+    guint prop_id, GValue * value, GParamSpec * pspec)
+{
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
+
+  switch (prop_id) {
+    case PROP_FILE_SIZE:
+      g_value_set_uint64 (value, allocator->file_size);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -268,16 +294,16 @@ gst_file_mem_set_property (GObject * object,
 static void
 gst_file_mem_constructed (GObject * object)
 {
-  char tmpfile_name[] = "/tmp/gstfilememallocator-XXXXXX";
   GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
 
-  allocator->fd = mkstemp (tmpfile_name);
+  g_return_if_fail (allocator->temp_template);
+  allocator->fd = mkstemp (allocator->temp_template);
 
   if (-1 == allocator->fd) {
     g_error ("mkstemp() failed: %s", g_strerror (errno));
   }
 
-  if (-1 == unlink (tmpfile_name)) {
+  if (-1 == unlink (allocator->temp_template)) {
     g_error ("unlink() failed: %s", g_strerror (errno));
   }
 
@@ -306,6 +332,8 @@ gst_file_mem_allocator_class_init (GstFileMemAllocatorClass * klass)
   GstAllocatorClass *allocator_class = GST_ALLOCATOR_CLASS (klass);
 
   gobject_class->set_property = gst_file_mem_set_property;
+  gobject_class->get_property = gst_file_mem_get_property;
+
   gobject_class->constructed = gst_file_mem_constructed;
   gobject_class->dispose = gst_file_mem_dispose;
 
@@ -316,6 +344,13 @@ gst_file_mem_allocator_class_init (GstFileMemAllocatorClass * klass)
       g_param_spec_uint64 ("file-size", "File Size",
           "The size of the file that will be used for a memory pool",
           DEFAULT_FILE_SIZE, G_MAXUINT64, DEFAULT_FILE_SIZE,
+          G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_TEMP_TEMPLATE,
+      g_param_spec_string ("temp-template", "File Template",
+          "File template for temporary storage, should contain directory "
+          "and a prefix filename.",
+          NULL,
           G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS));
 
   GST_DEBUG_CATEGORY_INIT (gst_file_mem_allocator_debug, "file mem allocator",
@@ -334,16 +369,22 @@ gst_file_mem_allocator_init (GstFileMemAllocator * allocator)
   alloc->mem_is_span = (GstMemoryIsSpanFunction) gst_file_mem_is_span;
 
   allocator->page_size = sysconf (_SC_PAGESIZE);
+
   allocator->file_size = DEFAULT_FILE_SIZE;
+  allocator->temp_template = NULL;
+
   allocator->fd = -1;
   allocator->f_offset_next = 0;
 }
 
 void
-gst_filemem_allocator_init (guint64 size, const gchar * name)
+gst_filemem_allocator_init (const gchar * name, guint64 size,
+    const gchar * temp_template)
 {
   GstFileMemAllocator *allocator =
-      g_object_new (gst_file_mem_allocator_get_type (), "file-size", size,
+      g_object_new (gst_file_mem_allocator_get_type (),
+      "file-size", size,
+      "temp-template", temp_template,
       NULL);
 
   gst_allocator_register (name, GST_ALLOCATOR_CAST (allocator));

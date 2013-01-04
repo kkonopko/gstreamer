@@ -23,20 +23,35 @@
 #include <gst/gstfilememallocator.h>
 #include <gst/check/gstcheck.h>
 
+static GstAllocator *
+create_allocator (guint64 size)
+{
+  GstAllocator *alloc = NULL;
+
+  gst_filemem_allocator_init ("FileMem",
+      size, "/tmp/gstfilememallocator-XXXXXX");
+
+  alloc = gst_allocator_find ("FileMem");
+  fail_unless (NULL != alloc);
+
+  return alloc;
+}
+
+static GstAllocator *
+create_allocator_defult (void)
+{
+  return create_allocator (G_GUINT64_CONSTANT (1) << 20);
+}
+
 GST_START_TEST (test_get_some_memory)
 {
   GstAllocator *alloc = NULL;
   GstMemory *mem = NULL;
   gsize offset = 0, maxsize = 0, size = 0;
 
-  const gchar *aname = "FileMem";
-  const guint64 allocator_total_size = G_GUINT64_CONSTANT (1) << 20;
   const gsize requested_size = 1 << 10;
 
-  gst_filemem_allocator_init (allocator_total_size, aname);
-
-  alloc = gst_allocator_find (aname);
-  fail_unless (NULL != alloc);
+  alloc = create_allocator_defult ();
 
   mem = gst_allocator_alloc (alloc, requested_size, NULL);
   fail_unless (NULL != mem);
@@ -59,14 +74,9 @@ GST_START_TEST (test_write_read)
   int test_value = 0xa;
   GstMapInfo info;
 
-  const gchar *aname = "FileMem";
-  const guint64 allocator_total_size = G_GUINT64_CONSTANT (1) << 20;
   const gsize requested_size = 1 << 10;
 
-  gst_filemem_allocator_init (allocator_total_size, aname);
-
-  alloc = gst_allocator_find (aname);
-  fail_unless (NULL != alloc);
+  alloc = create_allocator_defult ();
 
   mem = gst_allocator_alloc (alloc, requested_size, NULL);
   fail_unless (NULL != mem);
@@ -93,10 +103,7 @@ GST_START_TEST (test_submemory)
   GstMemory *memory = NULL, *sub = NULL;
   GstMapInfo info, sinfo;
 
-  gst_filemem_allocator_init (G_GUINT64_CONSTANT (1) << 20, "FileMem");
-
-  alloc = gst_allocator_find ("FileMem");
-  fail_unless (NULL != alloc);
+  alloc = create_allocator_defult ();
 
   memory = gst_allocator_alloc (alloc, 4, NULL);
 
@@ -160,10 +167,7 @@ GST_START_TEST (test_is_span)
   GstAllocator *alloc = NULL;
   GstMemory *memory = NULL, *sub1 = NULL, *sub2 = NULL;
 
-  gst_filemem_allocator_init (G_GUINT64_CONSTANT (1) << 20, "FileMem");
-
-  alloc = gst_allocator_find ("FileMem");
-  fail_unless (NULL != alloc);
+  alloc = create_allocator_defult ();
 
   memory = gst_allocator_alloc (alloc, 4, NULL);
 
@@ -197,10 +201,7 @@ GST_START_TEST (test_copy)
   GstAllocator *alloc = NULL;
   GstMemory *memory = NULL, *copy = NULL;
 
-  gst_filemem_allocator_init (G_GUINT64_CONSTANT (1) << 20, "FileMem");
-
-  alloc = gst_allocator_find ("FileMem");
-  fail_unless (NULL != alloc);
+  alloc = create_allocator_defult ();
 
   memory = gst_allocator_alloc (alloc, 4, NULL);
   ASSERT_MINI_OBJECT_REFCOUNT (memory, "memory", 1);
@@ -249,10 +250,7 @@ GST_START_TEST (test_map)
   GstAllocator *alloc = NULL;
   GstMemory *mem = NULL;
 
-  gst_filemem_allocator_init (G_GUINT64_CONSTANT (1) << 20, "FileMem");
-
-  alloc = gst_allocator_find ("FileMem");
-  fail_unless (NULL != alloc);
+  alloc = create_allocator_defult ();
 
   /* one memory block */
   mem = gst_allocator_alloc (alloc, 100, NULL);
@@ -288,10 +286,7 @@ GST_START_TEST (test_map_until_exhausted)
   GstAllocator *alloc = NULL;
   GstMemory *mem1 = NULL, *mem2 = NULL;
 
-  gst_filemem_allocator_init (allocator_total_size, "FileMem");
-
-  alloc = gst_allocator_find ("FileMem");
-  fail_unless (NULL != alloc);
+  alloc = create_allocator (allocator_total_size);
 
   mem1 = gst_allocator_alloc (alloc, allocator_total_size + 1, NULL);
   fail_unless (NULL == mem1);
@@ -303,6 +298,22 @@ GST_START_TEST (test_map_until_exhausted)
   fail_unless (NULL == mem2);
 
   gst_memory_unref (mem1);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_properties)
+{
+  guint64 allocator_total_size = G_GUINT64_CONSTANT (1) << 20;
+  GstAllocator *alloc = NULL;
+
+  guint64 size = 0;
+
+  alloc = create_allocator (allocator_total_size);
+
+  g_object_get (alloc, "file-size", &size, NULL);
+
+  fail_unless_equals_uint64 (size, allocator_total_size);
 }
 
 GST_END_TEST;
@@ -321,6 +332,7 @@ gst_file_mem_allocator_suite (void)
   tcase_add_test (tc_chain, test_copy);
   tcase_add_test (tc_chain, test_map);
   tcase_add_test (tc_chain, test_map_until_exhausted);
+  tcase_add_test (tc_chain, test_properties);
 
   return s;
 }
