@@ -428,6 +428,9 @@ AC_CHECK_FUNCS([ftello])
 AC_CHECK_FUNCS([fgetpos])
 AC_CHECK_FUNCS([fsetpos])
 
+AC_CHECK_FUNCS([fallocate])
+AC_CHECK_DECLS([FALLOC_FL_PUNCH_HOLE], [], [], [#include <linux/falloc.h>])
+
 dnl check for poll(), ppoll() and pselect()
 AC_CHECK_HEADERS([sys/poll.h], [], [], [AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([poll.h], [], [], [AC_INCLUDES_DEFAULT])

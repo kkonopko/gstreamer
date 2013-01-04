@@ -42,14 +42,20 @@ TODO: Description
 #include "gstminiobject.h"
 #include "gstmemory.h"
 
+#include <glib/gstdio.h>
+
 #include <errno.h>
-#include <stdlib.h>
 
 #if defined(HAVE_MMAP) && defined(HAVE_SYS_TYPES_H) && defined(HAVE_UNISTD_H)
 
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#ifdef HAVE_DECL_FALLOC_FL_PUNCH_HOLE
+#include <fcntl.h>
+#include <linux/falloc.h>
+#endif
 
 /* TODO: Handle unsupported platforms */
 #define GST_FILEMEMALLOCATOR_SUPPORTED
@@ -118,12 +124,23 @@ gst_file_mem_alloc (GstAllocator * alloc,
     maxsize = allocator->page_size;
   }
 
-  GST_DEBUG ("alloc from allocator %p", allocator);
+  GST_DEBUG ("alloc from allocator %p, size %u", allocator, maxsize);
 
   if (allocator->f_offset_next + maxsize > allocator->file_size) {
     GST_WARNING ("Cannot allocate %u bytes: not enough space", maxsize);
     return NULL;
   }
+
+  /* We do it here for symmetry with gst_file_mem_free(). Note that if
+     fallocate() is not supported then we don't do anything about it and let
+     mmap() fail if it can't allocate the disk space later on. */
+#if defined (HAVE_FALLOCATE)
+  if (0 != fallocate (allocator->fd, 0, allocator->f_offset_next, maxsize)) {
+    GST_WARNING ("Cannot allocate %u bytes of disk space: %s",
+        maxsize, g_strerror (errno));
+    return NULL;
+  }
+#endif
 
   mem = g_slice_new (GstFileMemory);
 
@@ -139,15 +156,32 @@ gst_file_mem_alloc (GstAllocator * alloc,
 }
 
 static void
-gst_file_mem_free (GstAllocator * allocator, GstMemory * mem)
+gst_file_mem_free (GstAllocator * alloc, GstMemory * mem)
 {
-  GstFileMemory *mmem = (GstFileMemory *) mem;
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) alloc;
+  GstFileMemory *fmem = (GstFileMemory *) mem;
 
-  // TODO: Return f_offset to the pool or just drop it?
-  // Yeah, drop it on the floor for now.
+  /* TODO: Return f_offset to the pool or just drop it?
+     For now the easiest thing is to not reclaim the block. Different schemes
+     can be applied here like fixed block size allocator with simple list
+     of blocks available or more advanced if needed. */
 
-  g_slice_free (GstFileMemory, mmem);
-  GST_DEBUG ("%p: freed", mmem);
+#if defined (HAVE_FALLOCATE) && defined (HAVE_DECL_FALLOC_FL_PUNCH_HOLE)
+  /* At least try to reclaim the disk space. */
+  if (0 != fallocate (allocator->fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
+          fmem->f_offset, mem->maxsize)) {
+    if (EOPNOTSUPP == errno) {
+      GST_WARNING ("Deallocating disk space not supported: %s",
+          g_strerror (errno));
+    } else {
+      GST_ERROR ("Cannot deallocate disk space: %s", g_strerror (errno));
+    }
+
+  }
+#endif
+
+  g_slice_free (GstFileMemory, fmem);
+  GST_DEBUG ("%p: freed", fmem);
 }
 
 static int
@@ -297,14 +331,14 @@ gst_file_mem_constructed (GObject * object)
   GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
 
   g_return_if_fail (allocator->temp_template);
-  allocator->fd = mkstemp (allocator->temp_template);
+  allocator->fd = g_mkstemp (allocator->temp_template);
 
   if (-1 == allocator->fd) {
-    g_error ("mkstemp() failed: %s", g_strerror (errno));
+    g_error ("g_mkstemp() failed: %s", g_strerror (errno));
   }
 
-  if (-1 == unlink (allocator->temp_template)) {
-    g_error ("unlink() failed: %s", g_strerror (errno));
+  if (-1 == g_unlink (allocator->temp_template)) {
+    g_error ("g_unlink() failed: %s", g_strerror (errno));
   }
 
   if (-1 == ftruncate64 (allocator->fd, allocator->file_size)) {
