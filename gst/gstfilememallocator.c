@@ -222,7 +222,7 @@ gst_file_mem_map (GstFileMemory * mem, gsize maxsize, GstMapFlags flags)
 
   GST_DEBUG ("%p: mapped %p", mem, res);
 
-  return res;
+  return mem->data = res;
 }
 
 static gboolean

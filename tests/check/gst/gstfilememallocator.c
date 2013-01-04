@@ -318,6 +318,36 @@ GST_START_TEST (test_properties)
 
 GST_END_TEST;
 
+GST_START_TEST (test_unmap)
+{
+  guint64 allocator_total_size = G_GUINT64_CONSTANT (1) << 20;
+  guint block_size = 32 * 1024;
+
+  guint64 num_blocks = allocator_total_size / block_size;
+  guint num_maps = 2048;
+
+  GstAllocator *alloc = create_allocator (allocator_total_size);
+
+  for (; 0 != num_blocks; --num_blocks) {
+    GstMapInfo info;
+    guint i;
+
+    GstMemory *mem = gst_allocator_alloc (alloc, block_size, NULL);
+    fail_unless (NULL != mem);
+
+    for (i = 0; i < num_maps; ++i) {
+      fail_unless (gst_memory_map (mem, &info, GST_MAP_WRITE));
+      gst_memory_unmap (mem, &info);
+      fail_unless (gst_memory_map (mem, &info, GST_MAP_READ));
+      gst_memory_unmap (mem, &info);
+    }
+
+    gst_memory_unref (mem);
+  }
+}
+
+GST_END_TEST;
+
 static Suite *
 gst_file_mem_allocator_suite (void)
 {
@@ -333,6 +363,7 @@ gst_file_mem_allocator_suite (void)
   tcase_add_test (tc_chain, test_map);
   tcase_add_test (tc_chain, test_map_until_exhausted);
   tcase_add_test (tc_chain, test_properties);
+  tcase_add_test (tc_chain, test_unmap);
 
   return s;
 }
