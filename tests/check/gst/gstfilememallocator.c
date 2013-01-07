@@ -28,10 +28,9 @@ create_allocator (guint64 size)
 {
   GstAllocator *alloc = NULL;
 
-  gst_filemem_allocator_init ("FileMem",
-      size, "/tmp/gstfilememallocator-XXXXXX");
+  gst_filemem_allocator_init (size, "/tmp/gstfilememallocator-XXXXXX");
 
-  alloc = gst_allocator_find ("FileMem");
+  alloc = gst_allocator_find (GST_ALLOCATOR_FILEMEM);
   fail_unless (NULL != alloc);
 
   return alloc;

@@ -18,6 +18,7 @@ gstdatetime
 gstelement
 gstelementfactory
 gstevent
+gstfilememallocator
 gstghostpad
 gstiterator
 gstindex

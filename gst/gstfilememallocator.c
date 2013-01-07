@@ -26,9 +26,14 @@
  * @short_description: allocate memory blocks using a file as a storage
  * @see_also: #GstAllocator
  *
-TODO: Description
+ * The default allocator uses virtual memory which might be inconvenient when
+ * there's a demand to keep large amount of buffers (e. g. a media ring buffer)
+ * while the amount of physical memory is limited (e. g. an embedded system).
  *
- * Last reviewed on 2012-12-13 (1.0.4)
+ * Given that the disk space is available instead, GstFileMemAllocator offers
+ * memory blocks which are mapped to file system blocks in a temporary file.
+ *
+ * Last reviewed on 2013-01-07 (1.0.4)
  */
 
 #include "gstfilememallocator.h"
@@ -396,7 +401,7 @@ gst_file_mem_allocator_init (GstFileMemAllocator * allocator)
 {
   GstAllocator *alloc = GST_ALLOCATOR_CAST (allocator);
 
-  alloc->mem_type = "File memory allocator";
+  alloc->mem_type = GST_ALLOCATOR_FILEMEM;
   alloc->mem_map = (GstMemoryMapFunction) gst_file_mem_map;
   alloc->mem_unmap = (GstMemoryUnmapFunction) gst_file_mem_unmap;
   alloc->mem_share = (GstMemoryShareFunction) gst_file_mem_share;
@@ -412,8 +417,7 @@ gst_file_mem_allocator_init (GstFileMemAllocator * allocator)
 }
 
 void
-gst_filemem_allocator_init (const gchar * name, guint64 size,
-    const gchar * temp_template)
+gst_filemem_allocator_init (guint64 size, const gchar * temp_template)
 {
   GstFileMemAllocator *allocator =
       g_object_new (gst_file_mem_allocator_get_type (),
@@ -421,5 +425,6 @@ gst_filemem_allocator_init (const gchar * name, guint64 size,
       "temp-template", temp_template,
       NULL);
 
-  gst_allocator_register (name, GST_ALLOCATOR_CAST (allocator));
+  gst_allocator_register (GST_ALLOCATOR_FILEMEM,
+      GST_ALLOCATOR_CAST (allocator));
 }

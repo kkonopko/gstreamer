@@ -30,9 +30,15 @@
 
 G_BEGIN_DECLS
 
+/**
+ * GST_ALLOCATOR_FILEMEM:
+ *
+ * The allocator name for the file memory allocator
+ */
+#define GST_ALLOCATOR_FILEMEM   "FileMemory"
+
 /* an allocator that uses mmap()-ed file chunks */
-void gst_filemem_allocator_init (const gchar * name, guint64 size,
-    const gchar * temp_template);
+void gst_filemem_allocator_init (guint64 size, const gchar * temp_template);
 
 G_END_DECLS
 
