@@ -1131,6 +1131,18 @@ gst_qos_type_get_type
 gst_event_type_flags_get_type
 </SECTION>
 
+
+<SECTION>
+<FILE>gstfilememallocator</FILE>
+<TITLE>GstFileMemAllocator</TITLE>
+<INCLUDE>gst/gstfilememallocator.h</INCLUDE>
+
+GST_ALLOCATOR_FILEMEM
+
+gst_filemem_allocator_init
+</SECTION>
+
+
 <SECTION>
 <FILE>gstformat</FILE>
 <TITLE>GstFormat</TITLE>

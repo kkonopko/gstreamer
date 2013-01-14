@@ -29,11 +29,39 @@
  * The default allocator uses virtual memory which might be inconvenient when
  * there's a demand to keep large amount of buffers (e. g. a media ring buffer)
  * while the amount of physical memory is limited (e. g. an embedded system).
- *
  * Given that the disk space is available instead, GstFileMemAllocator offers
  * memory blocks which are mapped to file system blocks in a temporary file.
  *
- * Last reviewed on 2013-01-07 (1.0.4)
+ * The allocator can be initialized with a call to gst_filemem_allocator_init()
+ * (usually in the main context of the application) and then retrieved with
+ * gst_allocator_find ().
+ * <example>
+ * <title>Using file memory allocator</title>
+ *   <programlisting>
+ *   const guint64 *ring_buffer_size = 512 * 1024 * 1024;
+ *   const gchar *allocator_file_template = "/tmp/file-mem-alloc-XXXXXX";
+ *   GstObject *some_obj;
+ *   gst_filemem_allocator_init (ring_buffer_size, allocator_file_template);
+ *   ...
+ *   some_obj = ...;
+ *   g_object_set (some_obj, "allocator-name", GST_ALLOCATOR_FILEMEM, NULL);
+ *   ...
+ *
+ *   gchar *prop_allocator_name = NULL;
+ *   guint buffer_size = ...;
+ *   GstAllocator *allocator;
+ *   GstBuffer *buffer;
+ *   ...
+ *
+ *   allocator = gst_allocator_find (prop_allocator_name);
+ *   buffer = gst_buffer_new_allocate (allocator, buffer_size, NULL);
+ *   ...
+ *   </programlisting>
+ * </example>
+ *
+ * Currently supported only on platforms with mmap() function available.
+ *
+ * Last reviewed on 2013-01-14 (1.0.5)
  */
 
 #include "gstfilememallocator.h"
@@ -62,10 +90,11 @@
 #include <linux/falloc.h>
 #endif
 
-/* TODO: Handle unsupported platforms */
 #define GST_FILEMEMALLOCATOR_SUPPORTED
 
 #endif
+
+#ifdef GST_FILEMEMALLOCATOR_SUPPORTED
 
 GST_DEBUG_CATEGORY_STATIC (gst_file_mem_allocator_debug);
 #define GST_CAT_DEFAULT gst_file_mem_allocator_debug
@@ -215,7 +244,7 @@ gst_file_mem_map (GstFileMemory * mem, gsize maxsize, GstMapFlags flags)
   GstFileMemAllocator *allocator = (GstFileMemAllocator *) mem->mem.allocator;
 
   /* Can't really control the alignment
-     Can we do something about data offset (GstAllocationParams)? Is it
+     Can we do something about the data offset (GstAllocationParams)? Is it
      the right place to handle it? */
   res = mmap (NULL, maxsize, mmap_prot, MAP_SHARED, allocator->fd,
       mem->f_offset);
@@ -259,7 +288,7 @@ gst_file_mem_share (GstFileMemory * mem, gssize offset, gsize size)
     size = mem->mem.size - offset;
 
   sub = g_slice_new (GstFileMemory);
-  /* the shared memory is always readonly */
+  /* the shared memory is always read only */
   gst_memory_init (GST_MEMORY_CAST (sub), GST_MINI_OBJECT_FLAGS (parent) |
       GST_MINI_OBJECT_FLAG_LOCK_READONLY, mem->mem.allocator, parent,
       mem->mem.maxsize, mem->mem.align, mem->mem.offset + offset, size);
@@ -416,15 +445,39 @@ gst_file_mem_allocator_init (GstFileMemAllocator * allocator)
   allocator->f_offset_next = 0;
 }
 
+#endif // GST_FILEMEMALLOCATOR_SUPPORTED
+
+/**
+ * gst_filemem_allocator_init:
+ * @size: available memory size
+ * @temp_template: file template for temporary storage
+ *
+ * Initialize a file memory allocator which will reserve @size bytes in
+ * a temporary file created based on @temp_template. This should be called only
+ * once within the application.
+ */
 void
 gst_filemem_allocator_init (guint64 size, const gchar * temp_template)
 {
-  GstFileMemAllocator *allocator =
+#ifdef GST_FILEMEMALLOCATOR_SUPPORTED
+
+  GstFileMemAllocator *allocator;
+
+  if (gst_allocator_find (GST_ALLOCATOR_FILEMEM)) {
+    GST_WARNING ("%s allocator already initialized", GST_ALLOCATOR_FILEMEM);
+    return;
+  }
+
+  allocator =
       g_object_new (gst_file_mem_allocator_get_type (),
-      "file-size", size,
-      "temp-template", temp_template,
-      NULL);
+      "file-size", size, "temp-template", temp_template, NULL);
 
   gst_allocator_register (GST_ALLOCATOR_FILEMEM,
       GST_ALLOCATOR_CAST (allocator));
+
+#else
+
+  GST_ERROR ("%s allocator is not supported on this platform",
+      GST_ALLOCATOR_FILEMEM);
+#endif // GST_FILEMEMALLOCATOR_SUPPORTED
 }
