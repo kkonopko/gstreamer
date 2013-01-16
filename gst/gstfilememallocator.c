@@ -38,7 +38,7 @@
  * <example>
  * <title>Using file memory allocator</title>
  *   <programlisting>
- *   const guint64 *ring_buffer_size = 512 * 1024 * 1024;
+ *   const guint64 ring_buffer_size = 512 * 1024 * 1024;
  *   const gchar *allocator_file_template = "/tmp/file-mem-alloc-XXXXXX";
  *   GstObject *some_obj;
  *   gst_filemem_allocator_init (ring_buffer_size, allocator_file_template);
@@ -96,8 +96,8 @@
 
 #ifdef GST_FILEMEMALLOCATOR_SUPPORTED
 
-GST_DEBUG_CATEGORY_STATIC (gst_file_mem_allocator_debug);
-#define GST_CAT_DEFAULT gst_file_mem_allocator_debug
+GST_DEBUG_CATEGORY_STATIC (gst_file_mem_allocator_debug_category);
+#define GST_CAT_DEFAULT gst_file_mem_allocator_debug_category
 
 typedef struct _GstFileMemory GstFileMemory;
 typedef struct _GstFileMemAllocator GstFileMemAllocator;
@@ -200,7 +200,7 @@ gst_file_mem_free (GstAllocator * alloc, GstMemory * mem)
      can be applied here like fixed block size allocator with simple list
      of blocks available or more advanced if needed. */
 
-#if defined (HAVE_FALLOCATE) && defined (HAVE_DECL_FALLOC_FL_PUNCH_HOLE)
+#if defined (HAVE_FALLOCATE) && HAVE_DECL_FALLOC_FL_PUNCH_HOLE
   /* At least try to reclaim the disk space. */
   if (0 != fallocate (allocator->fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
           fmem->f_offset, mem->maxsize)) {
@@ -421,8 +421,8 @@ gst_file_mem_allocator_class_init (GstFileMemAllocatorClass * klass)
           NULL,
           G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS));
 
-  GST_DEBUG_CATEGORY_INIT (gst_file_mem_allocator_debug, "file mem allocator",
-      0, "file memory allocator debug");
+  GST_DEBUG_CATEGORY_INIT (gst_file_mem_allocator_debug_category,
+      "gst_file_mem_allocator", 0, "file memory allocator");
 }
 
 static void
