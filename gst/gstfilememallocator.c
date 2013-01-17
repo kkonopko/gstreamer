@@ -192,7 +192,6 @@ gst_file_mem_alloc (GstAllocator * alloc,
 static void
 gst_file_mem_free (GstAllocator * alloc, GstMemory * mem)
 {
-  GstFileMemAllocator *allocator = (GstFileMemAllocator *) alloc;
   GstFileMemory *fmem = (GstFileMemory *) mem;
 
   /* TODO: Return f_offset to the pool or just drop it?
@@ -201,6 +200,8 @@ gst_file_mem_free (GstAllocator * alloc, GstMemory * mem)
      of blocks available or more advanced if needed. */
 
 #if defined (HAVE_FALLOCATE) && HAVE_DECL_FALLOC_FL_PUNCH_HOLE
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) alloc;
+
   /* At least try to reclaim the disk space. */
   if (0 != fallocate (allocator->fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
           fmem->f_offset, mem->maxsize)) {
