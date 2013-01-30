@@ -1140,6 +1140,7 @@ gst_event_type_flags_get_type
 GST_ALLOCATOR_FILEMEM
 
 gst_filemem_allocator_init
+gst_filemem_allocator_reset
 </SECTION>
 
 

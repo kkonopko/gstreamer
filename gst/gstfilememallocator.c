@@ -71,9 +71,6 @@
 #endif
 
 #include "gst_private.h"
-#include "gstallocator.h"
-#include "gstminiobject.h"
-#include "gstmemory.h"
 
 #include <glib/gstdio.h>
 
@@ -361,18 +358,20 @@ gst_file_mem_get_property (GObject * object,
 }
 
 static void
-gst_file_mem_constructed (GObject * object)
+gst_file_mem_open (GstFileMemAllocator * allocator)
 {
-  GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
+  gchar *temp_name = NULL;
 
   g_return_if_fail (allocator->temp_template);
-  allocator->fd = g_mkstemp (allocator->temp_template);
+
+  temp_name = g_strdup (allocator->temp_template);
+  allocator->fd = g_mkstemp (temp_name);
 
   if (-1 == allocator->fd) {
     g_error ("g_mkstemp() failed: %s", g_strerror (errno));
   }
 
-  if (-1 == g_unlink (allocator->temp_template)) {
+  if (-1 == g_unlink (temp_name)) {
     g_error ("g_unlink() failed: %s", g_strerror (errno));
   }
 
@@ -380,6 +379,26 @@ gst_file_mem_constructed (GObject * object)
     g_error ("ftruncate64() failed: %s", g_strerror (errno));
   }
 
+  g_free (temp_name);
+}
+
+static void
+gst_file_mem_close (GstFileMemAllocator * allocator)
+{
+  if (-1 != allocator->fd && -1 == close (allocator->fd)) {
+    g_error ("close() failed: %s", g_strerror (errno));
+  }
+
+  allocator->fd = -1;
+  allocator->f_offset_next = 0;
+}
+
+static void
+gst_file_mem_constructed (GObject * object)
+{
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
+
+  gst_file_mem_open (allocator);
   G_OBJECT_CLASS (gst_file_mem_allocator_parent_class)->constructed (object);
 }
 
@@ -387,9 +406,11 @@ static void
 gst_file_mem_dispose (GObject * object)
 {
   GstFileMemAllocator *allocator = (GstFileMemAllocator *) object;
-  if (-1 != allocator->fd && -1 == close (allocator->fd)) {
-    g_error ("close() failed: %s", g_strerror (errno));
-  }
+
+  gst_file_mem_close (allocator);
+
+  g_free (allocator->temp_template);
+  allocator->temp_template = NULL;
 
   G_OBJECT_CLASS (gst_file_mem_allocator_parent_class)->dispose (object);
 }
@@ -447,6 +468,28 @@ gst_file_mem_allocator_init (GstFileMemAllocator * allocator)
 }
 
 #endif // GST_FILEMEMALLOCATOR_SUPPORTED
+
+/**
+ * gst_filemem_allocator_reset:
+ * @alloc: the allocator
+ *
+ * Reset the @alloc allocator to a state in which it has all space available.
+ */
+void
+gst_filemem_allocator_reset (GstAllocator * alloc)
+{
+#ifdef GST_FILEMEMALLOCATOR_SUPPORTED
+  GstFileMemAllocator *allocator = (GstFileMemAllocator *) alloc;
+
+  gst_file_mem_close (allocator);
+  gst_file_mem_open (allocator);
+
+#else
+
+  GST_ERROR ("%s allocator is not supported on this platform",
+      GST_ALLOCATOR_FILEMEM);
+#endif // GST_FILEMEMALLOCATOR_SUPPORTED
+}
 
 /**
  * gst_filemem_allocator_init:

@@ -66,6 +66,38 @@ GST_START_TEST (test_get_some_memory)
 
 GST_END_TEST;
 
+
+GST_START_TEST (test_reset)
+{
+  GstAllocator *alloc = NULL;
+  GstMemory *mem = NULL;
+
+  const gsize requested_size = 1 << 10;
+
+  alloc = create_allocator_defult ();
+
+  mem = gst_allocator_alloc (alloc, requested_size, NULL);
+  fail_unless (NULL != mem);
+  gst_allocator_free (alloc, mem);
+
+  gst_filemem_allocator_reset (alloc);
+
+  mem = gst_allocator_alloc (alloc, requested_size, NULL);
+  fail_unless (NULL != mem);
+  gst_allocator_free (alloc, mem);
+
+  gst_filemem_allocator_reset (alloc);
+  gst_filemem_allocator_reset (alloc);
+
+  mem = gst_allocator_alloc (alloc, requested_size, NULL);
+  fail_unless (NULL != mem);
+  gst_allocator_free (alloc, mem);
+
+  gst_object_unref (alloc);
+}
+
+GST_END_TEST;
+
 GST_START_TEST (test_write_read)
 {
   GstAllocator *alloc = NULL;
@@ -355,6 +387,7 @@ gst_file_mem_allocator_suite (void)
 
   suite_add_tcase (s, tc_chain);
   tcase_add_test (tc_chain, test_get_some_memory);
+  tcase_add_test (tc_chain, test_reset);
   tcase_add_test (tc_chain, test_write_read);
   tcase_add_test (tc_chain, test_submemory);
   tcase_add_test (tc_chain, test_is_span);

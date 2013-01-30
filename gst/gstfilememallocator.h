@@ -24,6 +24,9 @@
 #ifndef __GST_FILEMEMALLOCATOR_H__
 #define __GST_FILEMEMALLOCATOR_H__
 
+#include <gst/gstminiobject.h>
+#include <gst/gstobject.h>
+#include <gst/gstallocator.h>
 #include <gst/gstconfig.h>
 
 #include <glib-object.h>
@@ -38,6 +41,8 @@ G_BEGIN_DECLS
 #define GST_ALLOCATOR_FILEMEM   "FileMemory"
 
 void gst_filemem_allocator_init (guint64 size, const gchar * temp_template);
+
+void gst_filemem_allocator_reset (GstAllocator * allocator);
 
 G_END_DECLS
 
