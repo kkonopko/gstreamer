@@ -167,9 +167,14 @@ gst_file_mem_alloc (GstAllocator * alloc,
      mmap() fail if it can't allocate the disk space later on. */
 #if defined (HAVE_FALLOCATE)
   if (0 != fallocate (allocator->fd, 0, allocator->f_offset_next, maxsize)) {
-    GST_WARNING ("Cannot allocate %u bytes of disk space: %s",
-        maxsize, g_strerror (errno));
-    return NULL;
+    if (EOPNOTSUPP == errno) {
+      GST_WARNING ("Allocating disk space not supported: %s",
+          g_strerror (errno));
+    } else {
+      GST_ERROR ("Cannot allocate %u bytes of disk space: %s",
+          maxsize, g_strerror (errno));
+      return NULL;
+    }
   }
 #endif
 
