@@ -155,10 +155,12 @@ gst_file_mem_alloc (GstAllocator * alloc,
     maxsize = allocator->page_size;
   }
 
-  GST_DEBUG ("alloc from allocator %p, size %u", allocator, maxsize);
+  GST_DEBUG ("alloc from allocator %p, size %" G_GSIZE_FORMAT, allocator,
+      maxsize);
 
   if (allocator->f_offset_next + maxsize > allocator->file_size) {
-    GST_WARNING ("Cannot allocate %u bytes: not enough space", maxsize);
+    GST_WARNING ("Cannot allocate %" G_GSIZE_FORMAT " bytes: not enough space",
+        maxsize);
     return NULL;
   }
 
@@ -171,7 +173,7 @@ gst_file_mem_alloc (GstAllocator * alloc,
       GST_WARNING ("Allocating disk space not supported: %s",
           g_strerror (errno));
     } else {
-      GST_ERROR ("Cannot allocate %u bytes of disk space: %s",
+      GST_ERROR ("Cannot allocate %" G_GSIZE_FORMAT " bytes of disk space: %s",
           maxsize, g_strerror (errno));
       return NULL;
     }
